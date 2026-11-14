@@ -417,12 +417,29 @@ async def test_pacing_tracks_queued_completions_and_preserves_retry_after(
 ) -> None:
     import asyncio
     import time
+    from types import SimpleNamespace
 
+    from binance_agent.agents import budget as budget_module
     from binance_agent.agents.budget import current_run_budget
     from binance_agent.eval import research_live_eval as live
 
     monkeypatch.setattr(live, "DEFAULT_EXPERIMENT_LEDGER", tmp_path / "experiment.json")
     monkeypatch.setattr(live, "ChatOpenAI", lambda **kwargs: object())
+    # Control pacing time independently of synchronous JSON persistence and
+    # platform timer granularity; keep real semaphore queuing and settlement.
+    now = [1000.0]
+    clock = SimpleNamespace(
+        monotonic=lambda: now[0], time=time.time, perf_counter=time.perf_counter
+    )
+    real_sleep = asyncio.sleep
+
+    async def advance(delay):
+        now[0] += delay
+        await real_sleep(0)
+
+    monkeypatch.setattr(live, "time", clock)
+    monkeypatch.setattr(budget_module, "time", clock)
+    monkeypatch.setattr(asyncio, "sleep", advance)
     cooldown_after_first = []
     sent = []
     finished = []
@@ -440,7 +457,7 @@ async def test_pacing_tracks_queued_completions_and_preserves_retry_after(
                 reservation = await budget.reserve(
                     "authorized", str(index), input_tokens_upper=10, output_tokens_limit=10
                 )
-                sent.append(time.monotonic())
+                sent.append(clock.monotonic())
                 if index == 0:
                     await gate.wait()
                 await budget.settle(
@@ -451,10 +468,10 @@ async def test_pacing_tracks_queued_completions_and_preserves_retry_after(
                     error_category="rate_limit" if index == 2 else None,
                     retry_after_s=1.0 if index == 2 else None,
                 )
-                finished.append(time.monotonic())
+                finished.append(clock.monotonic())
                 if index == 0:
                     cooldown_after_first.append(
-                        budget.endpoint_pool.cooldown_until.get("authorized", 0) - time.monotonic()
+                        budget.endpoint_pool.cooldown_until.get("authorized", 0) - clock.monotonic()
                     )
 
             tasks = [asyncio.create_task(request(i)) for i in range(3)]
@@ -484,7 +501,7 @@ async def test_pacing_tracks_queued_completions_and_preserves_retry_after(
     )
     report = await evaluate(args, "unused")
     assert report["executed_runs"] == 1
-    assert cooldown_after_first[0] > 0.025
-    assert sent[1] - finished[0] >= 0.025
+    assert cooldown_after_first[0] == pytest.approx(args.request_interval_s)
+    assert sent[1] - finished[0] == pytest.approx(args.request_interval_s)
     snapshot = json.loads((Path(args.output) / "dev-ledger.json").read_text(encoding="utf-8"))
-    assert snapshot["endpoint_cooldown_remaining_s"]["authorized"] > 0.5
+    assert snapshot["endpoint_cooldown_remaining_s"]["authorized"] == pytest.approx(1.0)

@@ -229,10 +229,10 @@ async def app_fixture(tmp_path: Path, model: Model) -> Any:
         app.state.graph_checkpointer.close()
 
 
-async def wait_finished(manager: Any, run_id: str) -> dict[str, Any]:
+async def wait_finished(manager: Any, run_id: str, *, timeout: float = 5) -> dict[str, Any]:
     task = manager.tasks.get(run_id)
     if task:
-        await asyncio.wait_for(asyncio.shield(task), 5)
+        await asyncio.wait_for(asyncio.shield(task), timeout)
     return manager.store.run(run_id)
 
 
@@ -403,7 +403,10 @@ async def test_full_research_graph_uses_durable_participants_and_refreshes_evide
         )
         session = manager.store.create_session("BTCUSDT", "fapi", "s")
         first = await manager.turn(session["session_id"], "核实ETF状态,保留否定和适用条件", "t")
-        run = await wait_finished(manager, first["run_id"])
+        # This exercises the full graph's durable SQLite writes, not a 5s SLA.
+        # Allow its configured research deadline plus bounded shutdown headroom.
+        timeout = manager.settings.research.deadline_s + 5
+        run = await wait_finished(manager, first["run_id"], timeout=timeout)
         assert run["status"] == "completed", run["record"].get("error")
         record = manager.store.get(first["run_id"])
         assert record["news_research"]["facts"]
@@ -419,7 +422,9 @@ async def test_full_research_graph_uses_durable_participants_and_refreshes_evide
         }
         assert all(a["status"] == "idle" for a in agents)
         second = await manager.turn(session["session_id"], "继续核实", "t2")
-        assert (await wait_finished(manager, second["run_id"]))["status"] == "completed"
+        assert (await wait_finished(manager, second["run_id"], timeout=timeout))[
+            "status"
+        ] == "completed"
         assert len(fetches) == 2  # A historical body must not suppress the next turn's fetch.
         assert {a["agent_id"] for a in manager.store.session(session["session_id"])["agents"]} == {
             a["agent_id"] for a in agents
