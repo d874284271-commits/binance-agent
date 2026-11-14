@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,"><title>Binance Agent · 研究工作台</title>
+<link rel="stylesheet" href="/ui/styles.css">
+<script src="/ui/app.js" defer></script>
+</head>
+<body>
+<header class="titlebar"><span class="brand"><span class="brand-mark">B</span> Binance Agent</span><span class="preview">PREVIEW</span><div class="window-actions"><button id="window-min" aria-label="最小化">—</button><button id="window-close" aria-label="关闭窗口">×</button></div></header>
+<div class="app-shell">
+<nav class="main-nav" aria-label="主导航"><button data-view="research" aria-current="page">研报</button><button data-view="history">历史</button><button data-view="settings">设置</button><span class="nav-note">仅研究 · 不下单</span></nav>
+<main>
+<section id="research-view" aria-label="研报">
+<div id="welcome" class="welcome" hidden><div><h1>从一份清楚的研报开始</h1><p>连接你的模型服务，或先看看结果长什么样。</p></div><div class="actions"><button id="connect-model" class="primary">连接模型</button><button id="show-example">查看示例研报</button></div></div>
+<section class="composer" aria-label="新建研究">
+<div class="section-top"><div class="mode-switch" role="group" aria-label="研究类型"><button id="mode-report" aria-pressed="true">市场研报</button><button id="mode-topic" aria-pressed="false">指定话题</button></div><div class="actions"><span id="connection-status" class="muted"></span><button id="new-research-toggle" type="button" hidden>新建研究</button></div></div>
+<form id="research-form" novalidate>
+<div id="topic-fields" hidden><label for="topic-question">你想研究什么？</label><textarea id="topic-question" maxlength="2000" rows="2" placeholder="例如：稳定币监管有哪些变化，哪些影响还不确定？"></textarea><label class="checkbox"><input id="link-asset" type="checkbox">关联币种</label></div>
+<div class="research-inputs"><div id="asset-fields" class="asset-fields"><div class="symbol-field"><label for="symbol">币种</label><input id="symbol" list="symbol-options" placeholder="代码或名称，如 BTC / Bitcoin" spellcheck="false" autocomplete="off" aria-describedby="target-preview input-error"><datalist id="symbol-options"></datalist></div><div><label for="market">市场</label><select id="market"><option value="fapi">合约 · USDⓈ-M</option><option value="api">现货</option></select></div></div><button id="generate" type="submit" class="primary">生成研报</button></div>
+<div class="input-footer"><span id="target-preview" class="muted"></span><button id="catalog-retry" type="button" class="text-button" hidden>重新读取币种</button></div><div id="recent-assets" class="recent-assets"></div><p id="input-error" class="error" role="alert" hidden></p>
+</form>
+</section>
+<section id="empty-report" class="empty-report"><span class="eyebrow">研究，从问题到依据</span><h1>看清市场，再做判断</h1><p>选择币种，一键生成综合研报。也可以指定话题，追踪行业、监管或宏观变化。</p><button id="empty-example">查看示例研报</button></section>
+<section id="workspace" hidden>
+<div class="session-heading"><div><span id="session-scope" class="eyebrow"></span><h1 id="session-title"></h1></div><label class="version-picker" for="turn-select">研究轮次<select id="turn-select"></select></label></div>
+<div class="run-toolbar"><span id="run-status" role="status" aria-live="polite"></span><div class="actions"><button id="return-live" hidden>返回当前轮</button><button id="update-report">更新当前研报</button><button id="resume-run" hidden>恢复中断</button><button id="stop-run" class="danger" hidden>停止本轮</button></div></div>
+<p id="run-error" class="error" role="alert" hidden></p><p id="reading-old" class="notice" hidden>正在回看已保存的版本，当前研究不会覆盖这份结果。</p>
+<article id="report-content" aria-label="研究结果"></article>
+<div id="export-actions" class="actions" hidden><button id="copy-report">复制研报</button><button id="save-report">保存 Markdown</button><span id="export-status" class="muted" role="status"></span></div>
+<form id="followup-form" class="followup" hidden><label for="followup-question" id="followup-label">继续追问</label><div class="followup-row"><textarea id="followup-question" rows="2" maxlength="2000" placeholder="输入后续问题或需要核查的资料"></textarea><button id="send-followup" class="primary">提交追问</button></div><div id="message-status" class="muted" role="status" aria-live="polite"></div></form>
+</section>
+</section>
+<section id="history-view" aria-label="历史" hidden><div class="page-heading"><div><span class="eyebrow">你的研究记录</span><h1>历史研报</h1></div><button id="refresh-history">刷新</button></div><p class="muted">打开已保存的结论，或沿原来的目标继续研究。</p><div id="history-list"></div></section>
+<section id="settings-view" aria-label="设置" hidden>
+<div class="page-heading"><div><span class="eyebrow">一次连接，随时研究</span><h1>设置</h1></div><button id="back-to-draft">返回研究草稿</button></div><p id="settings-message" role="status" aria-live="polite"></p>
+<section class="settings-group"><h2>模型连接</h2><form id="model-form"><label for="model-service">服务</label><select id="model-service"></select><div id="custom-service" hidden><label for="endpoint-name">服务名称</label><input id="endpoint-name" maxlength="60" placeholder="我的模型服务"><label for="endpoint-url">兼容 API 地址</label><input id="endpoint-url" type="url" placeholder="https://服务地址/v1"></div><label for="endpoint-key">API 密钥 <span id="key-state" class="muted"></span></label><input id="endpoint-key" type="password" autocomplete="new-password" placeholder="填写服务密钥；已连接时留空保留"><label for="endpoint-model">模型</label><div class="inline-field"><input id="endpoint-model" list="model-options" placeholder="选择或输入模型名称" required><datalist id="model-options"></datalist><button id="fetch-models" type="button">读取模型列表</button></div><label class="checkbox"><input id="unified-model" type="checkbox" checked>所有研究环节使用这个模型</label><div class="actions"><button class="primary" type="submit">保存并返回研究</button></div></form>
+<details><summary>模型高级设置</summary><button id="edit-service-address" type="button">编辑服务地址</button><label class="checkbox"><input id="structured-output" type="checkbox">服务支持结构化输出</label><label for="endpoint-concurrency">模型并发上限</label><input id="endpoint-concurrency" type="number" min="1" max="16" value="3"><p class="muted">以上设置随“保存并返回研究”保存。分角色配置保留，可单独调整。</p><div id="role-models"></div></details></section>
+<section class="settings-group"><h2>资料与搜索</h2><p class="muted">公共来源可直接使用。搜索为可选项，资料不足时会在研报中说明。</p><form id="search-form"><label for="search-key">Tavily 搜索密钥 <span id="search-state" class="muted"></span></label><div class="inline-field"><input id="search-key" type="password" autocomplete="new-password" placeholder="可选"><button type="submit">保存搜索连接</button></div></form><label for="research-window">默认资料时间窗</label><select id="research-window"><option value="24">最近 24 小时</option><option value="72">最近 3 天</option><option value="168">最近 7 天</option></select><details><summary>数据来源</summary><div id="source-settings"></div><div id="source-keys"></div></details></section>
+<section class="settings-group"><h2>网络与桌面</h2><form id="network-form"><label for="proxy">出站代理</label><div class="inline-field"><input id="proxy" placeholder="留空使用系统环境配置"><button type="submit">保存代理</button></div></form><form id="desktop-form"><label class="checkbox"><input id="on-top" type="checkbox">窗口置顶</label><label class="checkbox"><input id="hotkey-enabled" type="checkbox">启用全局热键 Ctrl + Alt + B</label><button type="submit">保存桌面偏好</button><span class="muted">重启应用后生效</span></form></section>
+<details class="settings-group"><summary>研究高级设置</summary><form id="limits-form"><label for="max-requests">每轮请求上限</label><input id="max-requests" type="number" min="1" max="500" value="100"><label for="deadline">每轮期限（秒）</label><input id="deadline" type="number" min="1" max="3600" value="600"><button type="submit">保存研究上限</button></form></details>
+<footer class="about">Binance Agent <span id="app-version"></span> · 开源预览版 · MIT<br>结果仅供研究参考。模型与可选搜索由你配置的服务提供。</footer>
+</section>
+</main></div>
+<dialog id="evidence-dialog"><div class="section-top"><h2 id="evidence-title">来源原文</h2><button id="close-evidence" aria-label="关闭原文">×</button></div><p id="evidence-meta" class="muted"></p><pre id="evidence-text"></pre></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body></html>

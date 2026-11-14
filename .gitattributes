@@ -1,0 +1,8 @@
+# 统一文本文件行尾为 LF,保证跨平台(Windows/macOS/Linux)一致
+* text=auto eol=lf
+
+# 二进制文件不做行尾转换
+*.png binary
+*.jpg binary
+*.ico binary
+*.gif binary

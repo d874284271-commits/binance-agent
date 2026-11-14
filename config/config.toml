@@ -1,0 +1,195 @@
+# Binance Agent 配置 — 无明文密钥;密钥用 *_ref 指向环境变量名或 keyring 条目
+# 修改后重启服务生效(运行时端点切换见 POST /config/llm-endpoint/switch)
+
+[app]
+host = "127.0.0.1"
+port = 8765
+log_level = "INFO"
+max_concurrent_runs = 2
+
+[market]
+default_market = "fapi"   # fapi=USDⓈ-M 合约 / api=现货
+testnet = false
+# 注:仅访问币安公共只读行情端点(REST/WS,无需签名/Key),故不配置币安 API Key。
+# 请勿在此存放带交易/提现权限的密钥 —— 本工具仅分析、不下单。
+
+[desktop]
+on_top = false
+
+[hotkey]
+enabled = false
+combo = "<ctrl>+<alt>+b"   # pynput 格式:复制交易对后按此热键触发分析
+
+[network]
+# 出站代理(留空=不走代理,改读 HTTPS_PROXY/HTTP_PROXY/ALL_PROXY 环境变量)。
+# 用于币安 REST/WS 行情与资讯源出站;若所在地域无法直连币安,在此填本地代理。
+# 示例:proxy = "http://127.0.0.1:7897"  或  "socks5://127.0.0.1:7897"
+# 也可在 UI「高级配置」运行时设置(写入 runtime_config.json,重启保留)。
+proxy = ""
+
+[debate]
+max_rounds = 2            # 多空辩论硬上限,防不收敛
+
+# ───────────────────────── 运行时恢复/存储 ─────────────────────────
+[runtime]
+checkpoint_backend = "sqlite"              # 协作模式使用 SQLite;memory 仅供关闭协作后的旧模式
+checkpoint_path = ".runs/checkpoints.sqlite"
+checkpoint_retention = 100                 # 保留最近 N 个 checkpoint thread
+strategy_planner_mode = "off"              # off / deterministic / llm_shadow / llm_enforce
+strategy_planner_enabled = false           # bounded planner 默认关闭;开启后插入 research_manager 后
+strategy_planner_max_steps = 5             # planner 最多 1-8 步,只负责受限流程决策
+strategy_planner_llm_actions = false       # LLM action planner 默认关闭;仅做 continue/watchlist/no_trade 流程判断
+preflight_refetch_enabled = true           # fan-out 前预检;行情/资讯缺什么只补抓什么,各最多一次
+# strategy_planner_refetch_enabled = true  # v0.2 仅兼容旧配置名,将在下一版本移除
+# 效果闭环(观测版):建议落库→T+N 小时打标→质量统计。回溯性自我诊断,仅观测分析质量,非绩效。
+enable_outcome_tracking = false            # 默认关;仅门控 /outcomes 只读端点。CLI `python -m binance_agent.eval` 显式触发不受限
+outcome_window_hours = 24                  # 打标窗口/建议成熟最小时长(小时)
+outcome_kline_interval = "5m"              # 回拉行情粒度(24h×5m=288 根,一次 limit=1000 覆盖)
+
+# 持续研究会话:关闭后可使用旧单轮入口,开启时要求 SQLite。
+[collaboration]
+enabled = true
+idle_unload_s = 60
+max_resident_agents = 32
+
+# 每节点窗口包含系统提示、输入和输出预留;不是整个 run 的累计预算。
+[runtime.context]
+window_tokens = 200000
+trigger_tokens = 160000
+target_tokens = 120000
+max_output_tokens = 4096
+compact_output_tokens = 8192
+safety_margin_tokens = 4096
+
+[confidence]
+policy_version = "confidence-policy/v2"
+# bucket caps 只通过人工批准的 calibration proposal 写入运行时覆盖;默认无 cap。
+
+# ───────────────────────── LLM:OpenAI 兼容多端点 ─────────────────────────
+# 本段是「示例/默认基底」。真正的供应商建议在 UI(设置 → 高级配置 → 供应商)里增改,
+# 会存到 ~/.binance_agent/runtime_config.json 并在启动时覆盖本段;UI 里可「重置为默认」回到这里。
+[llm]
+active_endpoint = "default"
+
+[[llm.endpoints]]
+name = "default"
+base_url = "https://api.openai.com/v1"
+api_key_ref = "OPENAI_API_KEY"   # key 不写在此;在 UI 填写或设同名环境变量
+model = "gpt-4o-mini"            # 端点默认模型
+models = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"]  # UI 可选(亦可手填/拉取)
+temperature = 0.3
+timeout = 60
+max_retries = 2
+structured_output = false       # 端点确认支持 response_format=json_object 后再开启
+max_concurrency = 1             # 研究模式初始端点并发;完成探测后再显式调高
+
+# 多供应商:在 UI「新增供应商」即可,无需手改本文件。如要手填,仿照上方再加一段
+# [[llm.endpoints]] 并把 active_endpoint 指向它的 name。
+
+# per-agent 模型映射 [endpoint, model](便宜模型跑分析师、强模型跑辩论/合成)。
+# 留空 = 所有 agent 回退到 active_endpoint 的默认模型;需要时在 UI(高级配置 → 模型)配置。
+[llm.agent_models]
+
+# ───────────────────────── 资讯情报层 ─────────────────────────
+[intel]
+time_window_hours = 24    # 新闻/事件时间窗
+per_source_timeout = 8.0  # 单源拉取超时(秒),超时降级不阻断
+max_news_items = 40       # 聚合后保留的新闻条数上限
+
+[intel.sources]           # 数据源开关(缺 key 的源会自动禁用)
+fear_greed    = true
+reddit        = true      # 无 key:r/CryptoCurrency 社媒情绪
+binance_deriv = true
+cryptopanic   = true
+rss           = true
+gdelt         = true
+finnhub       = true
+fred          = true
+akshare_cn    = true
+sec_rss       = true
+cftc_rss      = true
+federal_reserve_rss = true
+ecb_rss       = true
+ethereum_foundation_rss = true
+github_releases = true
+guardian_api  = true
+gnews_api     = true
+newsapi       = true
+mediastack    = true
+
+[intel.keys]              # 第三方源 key 引用(env 变量名);缺失则该源禁用并告警
+cryptopanic = "CRYPTOPANIC_TOKEN"
+finnhub     = "FINNHUB_KEY"
+fred        = "FRED_KEY"
+guardian_api = "GUARDIAN_API_KEY"
+gnews_api    = "GNEWS_API_KEY"
+newsapi      = "NEWSAPI_KEY"
+mediastack   = "MEDIASTACK_ACCESS_KEY"
+
+[intel.rss]               # 无 key 的 RSS 源
+feeds = [
+    "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    "https://cointelegraph.com/rss",
+]
+
+[[intel.rss.channels]]
+id = "sec_rss"
+label = "SEC"
+source_kind = "official"
+feeds = [
+    "https://www.sec.gov/news/pressreleases.rss",
+    "https://www.sec.gov/enforcement-litigation/litigation-releases/rss",
+]
+
+[[intel.rss.channels]]
+id = "cftc_rss"
+label = "CFTC"
+source_kind = "official"
+feeds = [
+    "https://www.cftc.gov/RSS/RSSGP/rssgp.xml",
+    "https://www.cftc.gov/RSS/RSSENF/rssenf.xml",
+]
+
+[[intel.rss.channels]]
+id = "federal_reserve_rss"
+label = "Federal Reserve"
+source_kind = "official"
+feeds = [
+    "https://www.federalreserve.gov/feeds/press_monetary.xml",
+    "https://www.federalreserve.gov/feeds/press_bcreg.xml",
+]
+
+[[intel.rss.channels]]
+id = "ecb_rss"
+label = "ECB"
+source_kind = "official"
+feeds = [
+    "https://www.ecb.europa.eu/rss/press.html",
+    "https://www.ecb.europa.eu/rss/operations.html",
+]
+
+[[intel.rss.channels]]
+id = "ethereum_foundation_rss"
+label = "Ethereum Foundation"
+source_kind = "official"
+feeds = ["https://blog.ethereum.org/feed.xml"]
+
+[intel.github]
+repositories = ["bitcoin/bitcoin", "ethereum/go-ethereum"]
+per_repo = 5
+max_age_hours = 168
+
+# Default profile uses bounded automatic evidence research.  Candidate selection,
+# body fetching and evidence gates remain deterministic; the model does not get
+# authority to skip required body reads or promote unsupported evidence.
+# Limits are operational bounds, not a latency/SLO promise.
+[research]
+enabled = true
+max_workers = 3
+max_tasks = 6
+max_rounds = 2
+max_documents = 12
+max_requests = 100
+deadline_s = 600
+input_mode = "evidence"
+workflow = "multi_debate"

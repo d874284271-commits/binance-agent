@@ -1,0 +1,36 @@
+# 工程化提交门禁:格式 / 静态检查 / 类型 / 密钥防护
+# 安装: uv run pre-commit install
+# 全量跑: uv run pre-commit run --all-files
+minimum_pre_commit_version: "4.0.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+        exclude: ^docs/images/.*\.svg$   # draw.io 导出的架构图内嵌位图,需随 README 发布
+      - id: detect-private-key       # 防私钥误提交
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.15
+    hooks:
+      - id: ruff                     # lint(自动修复)
+        args: [--fix]
+      - id: ruff-format              # 格式化
+
+  # mypy 跑在项目环境(uv run),避免隔离环境缺 numpy/fastapi/langchain 等导致误报
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (uv run, project env)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false

@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  push:
+    tags:
+      - "v*"
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Optional full 40-character commit SHA; empty uses the selected ref's commit"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  BINANCE_AGENT_BUILD_COMMIT: ${{ inputs.commit || github.sha }}
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BINANCE_AGENT_BUILD_COMMIT }}
+
+      - name: Verify requested commit
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, re, subprocess
+          expected = os.environ["BINANCE_AGENT_BUILD_COMMIT"]
+          if not re.fullmatch(r"[0-9a-fA-F]{40}", expected):
+              raise SystemExit("commit must be a full 40-character SHA")
+          actual = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if actual.lower() != expected.lower():
+              raise SystemExit("checkout does not match requested commit")
+          PY
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Set up Node for UI behavior regressions
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Ruff lint
+        run: uv run ruff check src tests packaging
+
+      - name: Ruff format
+        run: uv run ruff format --check src tests packaging
+
+      - name: Type check
+        run: uv run mypy src
+
+      - name: JavaScript syntax
+        run: node --check src/binance_agent/desktop/ui/app.js
+
+      - name: Test
+        run: uv run pytest
+
+  # Manual candidates only. No job in this workflow can create or publish a Release.
+  build-candidates:
+    if: github.event_name == 'workflow_dispatch'
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            os: windows-latest
+            architecture: x64
+          - target: macos-arm64
+            os: macos-15
+            architecture: arm64
+    runs-on: ${{ matrix.os }}
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BINANCE_AGENT_BUILD_COMMIT }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: ${{ matrix.architecture }}
+      - name: Install locked build dependencies
+        run: uv sync --locked --extra desktop --extra build
+      - name: Verify source, dependency versions and native architecture
+        run: uv run --no-sync python packaging/release.py check --target ${{ matrix.target }}
+      - name: Build unsigned desktop bundle
+        run: uv run --no-sync pyinstaller packaging/binance-agent.spec --noconfirm
+      - name: Windows offline smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/windows-smoke.ps1
+      - name: macOS offline smoke
+        if: runner.os == 'macOS'
+        run: uv run --no-sync python packaging/macos-smoke.py
+      - name: Upload smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-${{ matrix.target }}-${{ env.BINANCE_AGENT_BUILD_COMMIT }}
+          path: smoke-artifacts
+          if-no-files-found: ignore
+      - name: Inventory and archive candidate
+        run: uv run --no-sync python packaging/release.py package --target ${{ matrix.target }} --output candidate-artifacts
+      - name: Upload platform candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ matrix.target }}-${{ env.BINANCE_AGENT_BUILD_COMMIT }}
+          path: candidate-artifacts/*
+          if-no-files-found: error
+
+  assemble-candidates:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build-candidates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BINANCE_AGENT_BUILD_COMMIT }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: candidate-*-${{ env.BINANCE_AGENT_BUILD_COMMIT }}
+          path: incoming
+      - name: Verify both platforms and assemble matching source
+        run: python packaging/release.py aggregate --incoming incoming --output preview-candidate
+      - name: Upload complete unsigned preview candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-preview-${{ env.BINANCE_AGENT_BUILD_COMMIT }}
+          path: preview-candidate/*
+          if-no-files-found: error
+      - name: Record handoff
+        shell: bash
+        run: |
+          echo 'Both platform archives, matching source and SHA256SUMS are attached as workflow artifacts.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Unsigned/unnotarized preview. Native acceptance and explicit draft/prerelease publication are separate steps.' >> "$GITHUB_STEP_SUMMARY"

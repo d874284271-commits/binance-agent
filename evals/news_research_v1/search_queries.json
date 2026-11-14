@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "purpose": "Offline candidate-query benchmark specification only. Do not call providers or select a winner from this file.",
+  "providers_to_compare": ["tavily", "brave"],
+  "ranking_order": ["official_source_coverage", "relevance", "cost", "time_metadata"],
+  "queries": [
+    "BTC official ETF filing site:sec.gov",
+    "ETH protocol security release official",
+    "SOL validator outage official status",
+    "XRP court docket settlement official",
+    "USDC reserve attestation official",
+    "crypto exchange licence regulator announcement",
+    "Bitcoin fund flow official filing",
+    "FOMC decision release federal reserve",
+    "US CPI release bureau labor statistics",
+    "crypto token unlock official governance proposal",
+    "stablecoin issuer incident status official",
+    "cryptocurrency market policy consultation regulator"
+  ],
+  "result_capture_schema": {
+    "query": "string",
+    "provider": "tavily | brave",
+    "rank": "1..5",
+    "url": "string",
+    "title": "string",
+    "published_at": "string | null",
+    "official_source": "boolean",
+    "relevance_label": "0 | 1 | 2",
+    "cost_usd": "number | null",
+    "notes": "string"
+  },
+  "limitations": [
+    "No credential, paid request, provider result, pricing assertion, or winner selection is stored here.",
+    "Search snippets are discovery leads and never body evidence."
+  ]
+}

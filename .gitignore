@@ -1,0 +1,68 @@
+# ───── Python ─────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+*.so
+
+# ───── 虚拟环境 / uv ─────
+.venv/
+venv/
+env/
+# uv.lock 应提交以锁定依赖;如需忽略可解除下行注释
+# uv.lock
+
+# ───── 工具缓存 ─────
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ───── 密钥 / 环境变量(绝不提交)─────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.enc
+.secrets/
+# keyring/Fernet 落盘密文存储目录
+.binance_agent/
+
+# ───── Claude Code 本地配置 / 会话产物 ─────
+.claude/
+# 早期 plan mode 规划草稿(随机命名,不入库)
+/fluttering-toasting-rabin.md
+# 其他 AI 编码工具的会话计划
+.zcode/
+
+# ───── IDE / 编辑器 ─────
+.idea/
+.vscode/
+*.swp
+*~
+
+# ───── 操作系统 ─────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ───── 日志 / 运行时 ─────
+*.log
+logs/
+.runs/
+.desktop/
+.demo/
+.smoke-data/
+.ccw/.spec-index/
+.impeccable/
+# 本地研究、工具记录和未获再分发许可的真实语料
+/output/
+/.codestable/
+/.codegraph/
+/evals/news_research_real_v1/

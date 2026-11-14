@@ -1,0 +1,50 @@
+{
+  "licenses": [
+    {
+      "component": "langchain-core",
+      "source": "https://raw.githubusercontent.com/langchain-ai/langchain/langchain-core%3D%3D1.4.0/LICENSE",
+      "file": "langchain-core-LICENSE",
+      "checked_at": "2026-11-05"
+    },
+    {
+      "component": "langsmith",
+      "source": "https://raw.githubusercontent.com/langchain-ai/langsmith-sdk/v0.8.7/LICENSE",
+      "file": "langsmith-LICENSE",
+      "checked_at": "2026-11-05"
+    },
+    {
+      "component": "PyObjC 12.2.2 (core and frameworks)",
+      "source": "https://files.pythonhosted.org/packages/a5/78/abc4ce5920305780aeb36b4067a86253378b36e29ba96673a3deb02eb03a/pyobjc_core-12.2.2.tar.gz",
+      "archive_path": "pyobjc_core-12.2.2/License.txt",
+      "file": "pyobjc-LICENSE.txt",
+      "version": "12.2.2",
+      "archive_sha256": "3906452339cd06a3bb07df103c2511d4cb0f7a22d8771c0b802eba15d9a642b6",
+      "checked_at": "2026-11-14"
+    },
+    {
+      "component": "proxy-tools 0.1.0",
+      "source": "https://raw.githubusercontent.com/jtushman/proxy_tools/master/LICENSE.txt",
+      "file": "proxy-tools-LICENSE.txt",
+      "checked_at": "2026-11-05"
+    },
+    {
+      "component": "feedparser",
+      "version": "6.0.14",
+      "source": "https://files.pythonhosted.org/packages/7f/61/f04912e63702e73fb2a378f9c0a1ad9eb17a334a11a6b3fe1daa593903c2/feedparser-6.0.14-py3-none-any.whl",
+      "archive_sha256": "e35e3f760151b0c3b22cac9684155cae186a233e16c49bcbc6c49e91e3131137",
+      "archive_path": "feedparser-6.0.14.dist-info/licenses/LICENSE",
+      "file": "feedparser-LICENSE",
+      "checked_at": "2026-11-14"
+    },
+    {
+      "component": "feedparser-sgmllib",
+      "version": "2.1.0",
+      "source": "https://files.pythonhosted.org/packages/85/a0/79a31f898092e145bd66e2b338fb0656979acb2bbbcae8220940fbfcd820/feedparser_sgmllib-2.1.0-py3-none-any.whl",
+      "archive_sha256": "2cab2d43b95a954f920f18aebce7a4dbbb3f539780b127e2aa114f579821e01d",
+      "archive_path": "feedparser_sgmllib-2.1.0.dist-info/licenses/LICENSE",
+      "file": "feedparser-sgmllib-LICENSE",
+      "checked_at": "2026-11-14"
+    }
+  ],
+  "updated_at": "2026-11-14"
+}
