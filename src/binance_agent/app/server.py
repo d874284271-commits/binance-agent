@@ -282,6 +282,9 @@ def _derive_watchlist(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _build_runtime_graph(settings: Settings, registry: LlmRegistry, app: FastAPI) -> Any:
+    # 首次启动允许先打开设置、历史和离线示例;保存首个端点时再构建执行图。
+    if not registry.endpoint_names():
+        return None
     planner_mode = effective_strategy_planner_mode(settings.runtime)
     planner_enabled, planner_llm_actions, enforce_planner_decision = planner_flags_for_mode(
         planner_mode
@@ -904,6 +907,7 @@ def create_app(settings: Settings) -> FastAPI:
                     ),
                     retention=settings.runtime.checkpoint_retention,
                 )
+            stage_resource, stage_path = "研究模型配置", runtime_config_path()
             app.state.graph = _build_runtime_graph(settings, registry, app)
             stage_resource, stage_path = (
                 "运行历史目录",
@@ -1228,6 +1232,8 @@ def create_app(settings: Settings) -> FastAPI:
                     manager.subscribe(run["session_id"], after=cursor, until_run=run_id)
                 )
         graph = app.state.graph
+        if graph is None:
+            raise HTTPException(409, "请先在设置中连接模型")
         run_store: FileRunStore = app.state.run_store
         record = run_store.get(run_id)
         if record is None:
@@ -1374,6 +1380,8 @@ def create_app(settings: Settings) -> FastAPI:
         symbol = symbol.upper()
         aggregator: IntelAggregator = app.state.aggregator
         graph = app.state.graph
+        if graph is None:
+            raise HTTPException(409, "请先在设置中连接模型")
         run_store: FileRunStore = app.state.run_store
         tool_registry: ToolRegistry = getattr(
             app.state, "tool_registry", build_default_tool_registry()
@@ -1734,6 +1742,8 @@ def create_app(settings: Settings) -> FastAPI:
             fallback_verified=req.fallback_verified,
             max_concurrency=req.max_concurrency,
         )
+        if not settings.llm.endpoints:
+            registry.switch_active(req.name)
         if req.use_for_all_roles:
             candidate.llm.agent_models = {
                 role: (req.name, req.model) for role in AGENT_NAMES if role != "strategy_planner"

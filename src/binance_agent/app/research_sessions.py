@@ -143,6 +143,8 @@ class RunManager:
             signal.set()
 
     def _check_enabled(self) -> None:
+        if getattr(self.app.state, "graph", False) is None:
+            raise SessionConflict("请先在设置中连接模型")
         if self.closing:
             raise SessionConflict("backend is shutting down")
         if not self.settings.research.enabled:

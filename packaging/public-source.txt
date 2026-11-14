@@ -168,6 +168,7 @@ tests/test_eval_tagging.py
 tests/test_experiment_budget.py
 tests/test_fear_greed_provider.py
 tests/test_finnhub_provider.py
+tests/test_first_use_startup.py
 tests/test_fred_provider.py
 tests/test_gdelt_provider.py
 tests/test_graph_offline.py
