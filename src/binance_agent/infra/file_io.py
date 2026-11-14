@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import tempfile
 import threading
 from collections.abc import Iterator
@@ -29,7 +30,7 @@ def file_lock(path: Path) -> Iterator[None]:
     with _locks_guard:
         lock = _locks.setdefault(str(lock_path.resolve()), threading.RLock())
     with lock, lock_path.open("a+b") as handle:
-        if os.name == "nt":
+        if sys.platform == "win32":
             import msvcrt
 
             handle.seek(0, os.SEEK_END)
@@ -37,7 +38,7 @@ def file_lock(path: Path) -> Iterator[None]:
                 handle.write(b"\0")
                 handle.flush()
             handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)  # type: ignore[attr-defined]
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
         else:
             import fcntl
 
@@ -45,9 +46,9 @@ def file_lock(path: Path) -> Iterator[None]:
         try:
             yield
         finally:
-            if os.name == "nt":
+            if sys.platform == "win32":
                 handle.seek(0)
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
             else:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
@@ -62,7 +63,7 @@ def atomic_write(path: Path, content: bytes, *, private: bool = False) -> None:
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as handle:
-            if private and os.name != "nt":
+            if private and sys.platform != "win32":
                 os.fchmod(handle.fileno(), 0o600)
             handle.write(content)
             handle.flush()

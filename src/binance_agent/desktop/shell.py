@@ -21,6 +21,7 @@ import uvicorn
 from ..app.hotkey import HotkeyListener
 from ..app.server import create_app
 from ..infra.paths import resolve_data_path
+from ..infra.secrets import prepare_secret_store
 from ..infra.settings import Settings
 from ..infra.startup_errors import StartupError
 
@@ -157,6 +158,8 @@ def run_desktop(settings: Settings) -> None:
     try:
         import webview
 
+        if settings.profile != "demo":
+            prepare_secret_store()
         app = create_app(settings)
         config = uvicorn.Config(
             app,

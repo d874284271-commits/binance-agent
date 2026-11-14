@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 KEYRING_SERVICE = "binance-agent"
 _FERNET_KEY_NAME = "fernet-key"
 _STORE_PATH = Path.home() / ".binance_agent" / "secrets.enc"
+_cached_store: SecretStore | None = None
+_unavailable_path: Path | None = None
 
 
 class SecretStoreError(ValueError):
@@ -62,7 +64,14 @@ class SecretStore:
             atomic_write(self._path, self._fernet.encrypt(json.dumps(data).encode()), private=True)
 
 
-def _default_store() -> SecretStore | None:
+def _default_store(*, create: bool = True, retry: bool = False) -> SecretStore | None:
+    global _cached_store, _unavailable_path
+    if _cached_store is not None and _cached_store._path == _STORE_PATH:
+        return _cached_store
+    if not create and not _STORE_PATH.exists():
+        return None
+    if _unavailable_path == _STORE_PATH and not retry:
+        return None
     try:
         import keyring
         from cryptography.fernet import Fernet
@@ -70,6 +79,11 @@ def _default_store() -> SecretStore | None:
         # Key creation must share the encrypted-store lock: independent processes
         # must not encrypt their first writes using competing freshly generated keys.
         with file_lock(_STORE_PATH):
+            # Other callers may have waited for the same system authorization.
+            if _cached_store is not None and _cached_store._path == _STORE_PATH:
+                return _cached_store
+            if _unavailable_path == _STORE_PATH and not retry:
+                return None
             key = keyring.get_password(KEYRING_SERVICE, _FERNET_KEY_NAME)
             if not key:
                 if _STORE_PATH.exists():
@@ -78,17 +92,30 @@ def _default_store() -> SecretStore | None:
                     )
                 key = Fernet.generate_key().decode()
                 keyring.set_password(KEYRING_SERVICE, _FERNET_KEY_NAME, key)
-        return SecretStore(Fernet(key.encode()), _STORE_PATH)
+            _cached_store = SecretStore(Fernet(key.encode()), _STORE_PATH)
+            _unavailable_path = None
+            return _cached_store
     except SecretStoreError:
         raise
     except Exception as exc:
+        _unavailable_path = _STORE_PATH
         logger.debug("加密密钥库不可用(keyring/cryptography): %s", exc)
         return None
 
 
+def prepare_secret_store() -> None:
+    """Resolve an existing store before the desktop backend startup timer starts.
+
+    The OS may wait for the user to authorize Keychain access. Reuse the unlocked
+    Fernet key for this process; credentials themselves are still reread from disk.
+    Never create a key merely to inspect configuration on a fresh installation.
+    """
+    _default_store(create=False)
+
+
 def store_secret(name: str, value: str) -> bool:
     """加密保存并登记日志脱敏值;系统密钥存储不可用返回 False,已有坏库/写入失败向上传递。"""
-    store = _default_store()
+    store = _default_store(retry=True)
     if store is None:
         return False
     store.set(name, value)
@@ -107,7 +134,9 @@ def resolve_secret(ref: str | None) -> str | None:
     value = os.environ.get(ref)  # 1) 环境变量 / .env
 
     if not value:  # 2) 本地 Fernet 加密库(空 env 值不应遮蔽加密库,故用 not value)
-        store = _default_store()
+        store = _default_store(create=False)
+        if store is None and _STORE_PATH.exists():
+            return None  # Do not repeat a denied system prompt through the legacy fallback.
         if store is not None:
             value = store.get(ref)
 

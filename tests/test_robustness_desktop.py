@@ -62,6 +62,7 @@ def desktop_stub(monkeypatch, tmp_path, *, ready=True, alive=False):
         start=lambda **kw: calls.append("webview-start"),
     )
     monkeypatch.setenv("BINANCE_AGENT_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(shell, "prepare_secret_store", lambda: calls.append("keychain-ready"))
     monkeypatch.setattr(
         shell, "create_app", lambda settings: SimpleNamespace(state=SimpleNamespace())
     )
@@ -172,3 +173,13 @@ def test_listener_stop_failure_still_stops_backend(tmp_path, monkeypatch) -> Non
     monkeypatch.setattr(shell, "HotkeyListener", Listener)
     shell.run_desktop(Settings())
     assert "webview-start" in calls and "join" in calls and server.should_exit
+
+
+def test_keychain_authorization_happens_before_backend_start_timer(tmp_path, monkeypatch):
+    calls, _, _ = desktop_stub(monkeypatch, tmp_path)
+    monkeypatch.setattr(shell.time, "monotonic", lambda: calls.append("startup-clock") or 1000)
+    shell.run_desktop(Settings())
+    assert (
+        calls.index("keychain-ready") < calls.index("thread-start") < calls.index("startup-clock")
+    )
+    assert "webview-start" in calls
