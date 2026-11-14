@@ -151,7 +151,7 @@ def test_headless_failed_lifespan_is_nonzero(monkeypatch) -> None:
 
 
 def test_reconnection_does_not_start_a_new_turn() -> None:
-    js = Path("src/binance_agent/desktop/ui/app.js").read_text()
+    js = Path("src/binance_agent/desktop/ui/app.js").read_text(encoding="utf-8")
     handler = js[js.index("source.onerror =") : js.index("source.onopen =")]
     assert "startResearch" not in handler and "continueTurn" not in handler
     assert "连接暂时断开" in handler

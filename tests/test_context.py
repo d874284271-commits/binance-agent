@@ -211,6 +211,7 @@ async def test_exact_trigger_and_hard_window_boundaries() -> None:
         summary("x" * 130000),
         summary()[:-1] + ',"evidence": [{"verdict":"verified"}]}',
     ],
+    ids=["invalid-json", "unknown-source", "empty", "unsafe", "oversized", "extra-fields"],
 )
 async def test_invalid_summary_keeps_original_and_persists_failed_attempt(bad_summary: str) -> None:
     data = envelope()

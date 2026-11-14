@@ -76,7 +76,10 @@ def test_run_cache_incremental_and_rebuilds(tmp_path: Path) -> None:
         assert store.get(third) is not None and store.get(fourth) is not None
         assert decode.call_count == 2  # two local appends, no old records decoded
     original = path.read_bytes()
+    before = path.stat()
     path.write_bytes(original.replace(b'"BTC"', b'"SOL"'))
+    # Same-size rewrites need a distinct timestamp on coarse filesystem clocks.
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
     assert store.get(first)["symbol"] == "SOL"  # type: ignore[index]
     # A changed old byte plus external append is not distinguishable by size alone.
     rewritten = path.read_bytes().replace(b'"SOL"', b'"ADA"')
@@ -256,6 +259,9 @@ def test_external_change_between_local_appends_forces_rebuild(tmp_path: Path) ->
     first = store.create(symbol="BTC", market="api")
     assert store.get(first) is not None
     store.create(symbol="ETH", market="api")
+    before = path.stat()
     path.write_bytes(path.read_bytes().replace(b'"BTC"', b'"SOL"'))
+    # Exercise detectable external mutation without relying on clock resolution.
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
     store.create(symbol="BNB", market="api")
     assert store.get(first)["symbol"] == "SOL"  # type: ignore[index]

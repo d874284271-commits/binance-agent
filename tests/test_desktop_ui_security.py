@@ -29,7 +29,9 @@ const context=vm.createContext({console,URL,Blob,Node:Element,document:{getEleme
 vm.runInContext(fs.readFileSync('src/binance_agent/desktop/ui/app.js','utf8').split('\n(async function init()')[0],context);
 vm.runInContext('(async()=>{'+process.argv[1]+'})()',context).catch(e=>{console.error(e);process.exitCode=1});
 """
-    result = subprocess.run([executable, "-e", harness, script], capture_output=True, text=True)
+    result = subprocess.run(
+        [executable, "-e", harness, script], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)
 

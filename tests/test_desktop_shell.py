@@ -80,6 +80,6 @@ def test_native_save_uses_selected_saved_report_and_cancel_is_noop(tmp_path, mon
     assert not (tmp_path / "export.md").exists()
     api.bind(SimpleNamespace(create_file_dialog=lambda *a, **k: (str(tmp_path / "export.md"),)))
     assert api.save_report(first)["saved"]
-    content = (tmp_path / "export.md").read_text()
+    content = (tmp_path / "export.md").read_text(encoding="utf-8")
     assert "selected version" in content and "different version" not in content
     assert "runtime_events" not in content

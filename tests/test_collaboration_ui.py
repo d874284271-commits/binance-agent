@@ -6,8 +6,8 @@ UI = Path("src/binance_agent/desktop/ui")
 
 
 def test_product_controls_keep_research_and_remove_engineering_surfaces():
-    html = (UI / "index.html").read_text()
-    js = (UI / "app.js").read_text()
+    html = (UI / "index.html").read_text(encoding="utf-8")
+    js = (UI / "app.js").read_text(encoding="utf-8")
     for identity in (
         "research-view",
         "history-view",

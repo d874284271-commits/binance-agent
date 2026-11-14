@@ -215,7 +215,7 @@ async def evaluate(args: argparse.Namespace, key: str) -> dict[str, Any]:
         ],
     }
     frozen_path = root / f"{args.split}-freeze.json"
-    if frozen_path.exists() and json.loads(frozen_path.read_text()) != manifests:
+    if frozen_path.exists() and json.loads(frozen_path.read_text(encoding="utf-8")) != manifests:
         raise ValueError("frozen manifest differs; do not overwrite or mix the experiment")
     save_json(frozen_path, manifests)
     ledger_path = Path(args.ledger) if args.ledger else root / f"{args.split}-ledger.json"
@@ -258,12 +258,15 @@ async def evaluate(args: argparse.Namespace, key: str) -> dict[str, Any]:
         raise ValueError(
             "legacy ledger has no frozen candidate; use a new ledger under shared experiment ceiling"
         )
-    if candidate_path.exists() and json.loads(candidate_path.read_text()) != candidate_config:
+    if (
+        candidate_path.exists()
+        and json.loads(candidate_path.read_text(encoding="utf-8")) != candidate_config
+    ):
         raise ValueError("ledger belongs to a different frozen candidate")
     save_json(candidate_path, candidate_config)
     if ledger_path.exists():
         budget = RunBudget.from_snapshot(
-            json.loads(ledger_path.read_text()),
+            json.loads(ledger_path.read_text(encoding="utf-8")),
             endpoint_pool=pool,
             on_change=on_change,
         )
@@ -310,7 +313,7 @@ async def evaluate(args: argparse.Namespace, key: str) -> dict[str, Any]:
     )
     results_path = root / f"{args.split}-results.jsonl"
     previous = (
-        [json.loads(line) for line in results_path.read_text().splitlines()]
+        [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()]
         if results_path.exists()
         else []
     )

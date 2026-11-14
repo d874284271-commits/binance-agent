@@ -39,7 +39,10 @@ async def test_zero_model_calls_are_blocked_not_completed(tmp_path: Path, monkey
         case_timeout=10,
     )
     report = await evaluate(args, "not-a-real-key")
-    rows = [json.loads(line) for line in (tmp_path / "dev-results.jsonl").read_text().splitlines()]
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev-results.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
     assert rows[0]["status"] == "blocked"
     assert rows[0]["model_requests"] == 0
     assert report["stop_reason"] == "no_model_request"
@@ -134,7 +137,7 @@ async def test_provider_strategy_reaches_http_and_runtime_and_is_frozen(
         assert constructor_kwargs[0]["reasoning_effort"] == "low"
     else:
         assert "reasoning_effort" not in constructor_kwargs[0]
-    frozen = json.loads((Path(args.output) / "dev-freeze.json").read_text())
+    frozen = json.loads((Path(args.output) / "dev-freeze.json").read_text(encoding="utf-8"))
     for group in ("workflow_comparison", "input_mode_comparison"):
         for cell in frozen[group]:
             config = cell["model_config"]
@@ -483,5 +486,5 @@ async def test_pacing_tracks_queued_completions_and_preserves_retry_after(
     assert report["executed_runs"] == 1
     assert cooldown_after_first[0] > 0.025
     assert sent[1] - finished[0] >= 0.025
-    snapshot = json.loads((Path(args.output) / "dev-ledger.json").read_text())
+    snapshot = json.loads((Path(args.output) / "dev-ledger.json").read_text(encoding="utf-8"))
     assert snapshot["endpoint_cooldown_remaining_s"]["authorized"] > 0.5

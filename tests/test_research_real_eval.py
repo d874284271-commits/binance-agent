@@ -234,7 +234,7 @@ async def test_historical_runner_policy_and_failed_resume_denominator(
     # A blocked attempt is retained, never retried into a new independent sample.
     assert len(captured) == 2  # Next previously unattempted comparison cell only.
     assert report["executed_runs"] == 2
-    frozen = json.loads((tmp_path / "output" / "dev-freeze.json").read_text())
+    frozen = json.loads((tmp_path / "output" / "dev-freeze.json").read_text(encoding="utf-8"))
     config = frozen["workflow_comparison"][0]["model_config"]
     assert config["max_output_tokens"] == 4096
     assert config["research_rounds"] == 2
